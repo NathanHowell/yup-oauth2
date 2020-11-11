@@ -53,7 +53,9 @@ fn check_or_create_topic(methods: &PubsubMethods) -> Topic {
         println!("Assuming topic doesn't exist; creating topic");
         let topic = pubsub::Topic {
             name: Some(TOPIC_NAME.to_string()),
+            message_storage_policy: None,
             labels: None,
+            kms_key_name: None
         };
         let result = methods.topics_create(topic, TOPIC_NAME).doit().unwrap();
         result.1
@@ -69,13 +71,17 @@ fn check_or_create_subscription(methods: &PubsubMethods) -> Subscription {
     if result.is_err() {
         println!("Assuming subscription doesn't exist; creating subscription");
         let sub = pubsub::Subscription {
+            filter: None,
             topic: Some(TOPIC_NAME.to_string()),
             ack_deadline_seconds: Some(30),
             push_config: None,
             message_retention_duration: None,
             retain_acked_messages: None,
+            dead_letter_policy: None,
             name: Some(SUBSCRIPTION_NAME.to_string()),
             labels: None,
+            retry_policy: None,
+            expiration_policy: None
         };
         let (_resp, sub) = methods
             .subscriptions_create(sub, SUBSCRIPTION_NAME)
@@ -179,15 +185,16 @@ fn publish_stuff(methods: &PubsubMethods, message: &str) {
 // If called as '.../service_account pub', act as publisher; if called as '.../service_account
 // sub', act as subscriber.
 fn main() {
+    let client = hyper::Client::new();
     let client_secret =
         oauth::service_account_key_from_file(&"pubsub-auth.json".to_string()).unwrap();
-    let mut access = oauth::ServiceAccountAccess::new(client_secret).build();
+    let mut access = oauth::ServiceAccountAccess::new(client_secret, client);
 
     use yup_oauth2::GetToken;
     println!(
         "{:?}",
         access
-            .token(vec!["https://www.googleapis.com/auth/pubsub"])
+            .token(vec![&"https://www.googleapis.com/auth/pubsub"])
             .unwrap()
     );
 
